@@ -2,6 +2,7 @@ import time
 import smbus2
 from luma.core.interface.serial import i2c
 from luma.oled.device import sh1106
+from luma.core.render import canvas
 from PIL import ImageFont
 
 # --- Detect OLED I2C address ---
@@ -46,3 +47,4 @@ while True:
 
     page_index = (page_index + 1) % len(pages)
     time.sleep(2)
+
