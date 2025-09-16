@@ -7,6 +7,16 @@ import board
 import busio
 import os
 
+# --- GPS support ---
+try:
+    import gps
+    gps_session = gps.gps(mode=gps.WATCH_ENABLE)
+    gps_connected = True
+    print("GPS detected, live speed enabled.")
+except ImportError:
+    print("GPS module not installed, using dummy GPS speed.")
+    gps_connected = False
+
 # --- Setup OLED ---
 i2c = busio.I2C(board.SCL, board.SDA)
 oled = adafruit_ssd1306.SSD1306_I2C(128, 32, i2c)
@@ -18,7 +28,7 @@ BUTTON_PIN = 17
 GPIO.setmode(GPIO.BCM)
 GPIO.setup(BUTTON_PIN, GPIO.IN, pull_up_down=GPIO.PUD_UP)
 
-# --- Setup Serial ---
+# --- Setup Serial (MegaSquirt) ---
 try:
     ser = serial.Serial('/dev/ttyUSB0', 115200, timeout=0.5)
     ms_connected = True
@@ -28,18 +38,15 @@ except serial.SerialException:
     ms_connected = False
 
 # --- Fonts ---
-font_label = ImageFont.load_default()  # small font for label
-
-# Use a larger bold font for value if available
+font_label = ImageFont.load_default()
 font_path = "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf"
 if os.path.exists(font_path):
     font_value = ImageFont.truetype(font_path, 16)
 else:
-    print("Custom font not found, using default for value")
     font_value = ImageFont.load_default()
 
 # --- Pages ---
-pages = ['RPM', 'Coolant', 'MAT', 'AFR', 'TPS']
+pages = ['RPM', 'Coolant', 'MAT', 'AFR', 'TPS', 'GPS']
 page_index = 0
 
 # --- Debounce ---
@@ -67,6 +74,20 @@ def parse_data(frame):
 def get_dummy_data():
     return {'RPM': 1500, 'Coolant': 75, 'MAT': 30, 'AFR': 14.7, 'TPS': 5}
 
+def get_gps_speed():
+    if not gps_connected:
+        return 0.0
+    try:
+        report = gps_session.next()
+        if report['class'] == 'TPV':
+            speed_m_s = getattr(report, 'speed', 0.0)  # m/s
+            return speed_m_s * 2.23694  # convert to MPH
+    except StopIteration:
+        return 0.0
+    except KeyError:
+        return 0.0
+    return 0.0
+
 def draw_centered(draw, label, value):
     # Get bounding boxes for label and value
     bbox_label = draw.textbbox((0, 0), label, font=font_label)
@@ -83,7 +104,7 @@ def draw_centered(draw, label, value):
 
     # Y positions
     y_label = 0
-    y_value = h_label  # value below label
+    y_value = h_label
 
     draw.text((x_label, y_label), label, font=font_label, fill=255)
     draw.text((x_value, y_value), value, font=font_value, fill=255)
@@ -104,6 +125,9 @@ try:
         if not data:
             data = get_dummy_data()
 
+        # --- Read GPS speed ---
+        gps_speed = get_gps_speed()
+
         # --- Prepare page text ---
         page = pages[page_index]
         if page == 'RPM':
@@ -121,6 +145,9 @@ try:
         elif page == 'TPS':
             label = "TPS"
             value = f"{data['TPS']}%"
+        elif page == 'GPS':
+            label = "GPS Speed"
+            value = f"{gps_speed:.1f} MPH"
 
         # --- Draw ---
         image = Image.new('1', (128, 32))
