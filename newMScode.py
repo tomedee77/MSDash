@@ -12,12 +12,14 @@ gps_connected = False
 gps_session = None
 try:
     import gps
+    gps_session = gps.gps(mode=gps.WATCH_ENABLE)
+    # Try to get a TPV report non-blocking
     try:
-        gps_session = gps.gps(mode=gps.WATCH_ENABLE)
-        # Try one non-blocking read
         report = gps_session.next()
-        gps_connected = True
-    except (StopIteration, KeyError):
+        # Only accept if the report class is TPV and has a speed attribute
+        if getattr(report, 'class', '') == 'TPV' and hasattr(report, 'speed'):
+            gps_connected = True
+    except (StopIteration, KeyError, AttributeError):
         gps_connected = False
 except ImportError:
     gps_connected = False
@@ -89,10 +91,10 @@ def get_gps_speed():
         return 0.0
     try:
         report = gps_session.next()
-        if report['class'] == 'TPV':
-            speed_m_s = getattr(report, 'speed', 0.0)  # m/s
-            return speed_m_s * 2.23694  # MPH
-    except (StopIteration, KeyError):
+        if getattr(report, 'class', '') == 'TPV':
+            speed_m_s = getattr(report, 'speed', 0.0)
+            return speed_m_s * 2.23694  # convert to MPH
+    except (StopIteration, KeyError, AttributeError):
         return 0.0
     except Exception:
         return 0.0
