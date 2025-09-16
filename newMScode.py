@@ -30,7 +30,7 @@ except serial.SerialException:
 # --- Fonts ---
 font_label = ImageFont.load_default()  # small font for label
 
-# Try to use a larger bold font for value
+# Use a larger bold font for value if available
 font_path = "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf"
 if os.path.exists(font_path):
     font_value = ImageFont.truetype(font_path, 16)
@@ -50,7 +50,7 @@ last_press_time = 0
 def request_realtime():
     if not ms_connected:
         return None
-    ser.write(b'\x01')  # adjust for your firmware
+    ser.write(b'\x01')  # adjust for your MS2/Extra firmware
     frame = ser.read(32)
     return frame
 
@@ -68,18 +68,23 @@ def get_dummy_data():
     return {'RPM': 1500, 'Coolant': 75, 'MAT': 30, 'AFR': 14.7, 'TPS': 5}
 
 def draw_centered(draw, label, value):
-    # Use font.getsize() for compatibility
-    w_label, h_label = font_label.getsize(label)
-    w_value, h_value = font_value.getsize(value)
-    
+    # Get bounding boxes for label and value
+    bbox_label = draw.textbbox((0, 0), label, font=font_label)
+    w_label = bbox_label[2] - bbox_label[0]
+    h_label = bbox_label[3] - bbox_label[1]
+
+    bbox_value = draw.textbbox((0, 0), value, font=font_value)
+    w_value = bbox_value[2] - bbox_value[0]
+    h_value = bbox_value[3] - bbox_value[1]
+
     # X positions for centering
     x_label = (128 - w_label) // 2
     x_value = (128 - w_value) // 2
-    
+
     # Y positions
     y_label = 0
     y_value = h_label  # value below label
-    
+
     draw.text((x_label, y_label), label, font=font_label, fill=255)
     draw.text((x_value, y_value), value, font=font_value, fill=255)
 
