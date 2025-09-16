@@ -29,11 +29,11 @@ font_large = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bol
 
 # Example data (later replaced with MS + GPS)
 pages = [
-    ("Coolant", "85.0 C"),
-    ("MAT", "32.5 C"),
+    ("Coolant °C", "85.0"),
+    ("MAT °C", "32.5"),
     ("AFR", "14.7"),
-    ("Boost", "1.2 bar"),
-    ("Speed", "56.3 mph"),
+    ("Boost Bar", "1.2"),
+    ("Speed MPH", "56.3"),
 ]
 
 page_index = 0
@@ -54,4 +54,5 @@ while True:
 
     page_index = (page_index + 1) % len(pages)
     time.sleep(2)
+
 
