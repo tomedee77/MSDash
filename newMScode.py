@@ -7,15 +7,25 @@ import board
 import busio
 import os
 
-# --- GPS support ---
+# --- GPS detection ---
+gps_connected = False
+gps_session = None
 try:
     import gps
-    gps_session = gps.gps(mode=gps.WATCH_ENABLE)
-    gps_connected = True
-    print("GPS detected, live speed enabled.")
+    try:
+        gps_session = gps.gps(mode=gps.WATCH_ENABLE)
+        # Try one non-blocking read
+        report = gps_session.next()
+        gps_connected = True
+    except (StopIteration, KeyError):
+        gps_connected = False
 except ImportError:
-    print("GPS module not installed, using dummy GPS speed.")
     gps_connected = False
+
+if gps_connected:
+    print("GPS detected, live speed enabled.")
+else:
+    print("No GPS detected, using dummy GPS speed.")
 
 # --- Setup OLED ---
 i2c = busio.I2C(board.SCL, board.SDA)
@@ -24,7 +34,7 @@ oled.fill(0)
 oled.show()
 
 # --- Setup Button ---
-BUTTON_PIN = 17  # BCM pin 17
+BUTTON_PIN = 17  # BCM numbering
 GPIO.setmode(GPIO.BCM)
 GPIO.setup(BUTTON_PIN, GPIO.IN, pull_up_down=GPIO.PUD_UP)
 
@@ -49,7 +59,7 @@ else:
 pages = ['RPM', 'Coolant', 'MAT', 'AFR', 'TPS', 'GPS']
 page_index = 0
 
-# --- Button state tracking ---
+# --- Button tracking ---
 last_button_state = GPIO.input(BUTTON_PIN)
 last_press_time = 0
 
@@ -75,16 +85,16 @@ def get_dummy_data():
     return {'RPM': 1500, 'Coolant': 75, 'MAT': 30, 'AFR': 14.7, 'TPS': 5}
 
 def get_gps_speed():
-    if not gps_connected:
+    if not gps_connected or gps_session is None:
         return 0.0
     try:
         report = gps_session.next()
         if report['class'] == 'TPV':
             speed_m_s = getattr(report, 'speed', 0.0)  # m/s
-            return speed_m_s * 2.23694  # convert to MPH
-    except StopIteration:
+            return speed_m_s * 2.23694  # MPH
+    except (StopIteration, KeyError):
         return 0.0
-    except KeyError:
+    except Exception:
         return 0.0
     return 0.0
 
@@ -106,18 +116,18 @@ def draw_centered(draw, label, value):
     draw.text((x_label, y_label), label, font=font_label, fill=255)
     draw.text((x_value, y_value), value, font=font_value, fill=255)
 
-# --- Main Loop ---
+# --- Main loop ---
 try:
     while True:
         # --- Button polling ---
         button_state = GPIO.input(BUTTON_PIN)
         if button_state == GPIO.LOW and last_button_state == GPIO.HIGH:
-            if (time.time() - last_press_time) > 0.5:  # 500ms debounce
+            if (time.time() - last_press_time) > 0.5:
                 page_index = (page_index + 1) % len(pages)
                 last_press_time = time.time()
         last_button_state = button_state
 
-        # --- Read ECU or dummy data ---
+        # --- Read ECU or dummy ---
         frame = request_realtime()
         data = parse_data(frame)
         if not data:
@@ -153,6 +163,7 @@ try:
         draw_centered(draw, label, value)
         oled.image(image)
         oled.show()
+
         time.sleep(0.02)  # fast loop for responsive button
 
 except KeyboardInterrupt:
