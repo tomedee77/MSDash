@@ -24,13 +24,13 @@ oled.fill(0)
 oled.show()
 
 # --- Setup Button ---
-BUTTON_PIN = 17  # BCM pin 17 (physical pin 11)
+BUTTON_PIN = 17  # BCM pin 17
 GPIO.setmode(GPIO.BCM)
 GPIO.setup(BUTTON_PIN, GPIO.IN, pull_up_down=GPIO.PUD_UP)
 
 # --- Setup Serial (MegaSquirt) ---
 try:
-    ser = serial.Serial('/dev/ttyUSB0', 115200, timeout=0.5)
+    ser = serial.Serial('/dev/ttyUSB0', 115200, timeout=0.1)
     ms_connected = True
     print("MegaSquirt detected, live data mode enabled.")
 except serial.SerialException:
@@ -49,7 +49,7 @@ else:
 pages = ['RPM', 'Coolant', 'MAT', 'AFR', 'TPS', 'GPS']
 page_index = 0
 
-# --- Button tracking variables ---
+# --- Button state tracking ---
 last_button_state = GPIO.input(BUTTON_PIN)
 last_press_time = 0
 
@@ -109,10 +109,10 @@ def draw_centered(draw, label, value):
 # --- Main Loop ---
 try:
     while True:
-        # --- Button polling with falling-edge detection ---
+        # --- Button polling ---
         button_state = GPIO.input(BUTTON_PIN)
         if button_state == GPIO.LOW and last_button_state == GPIO.HIGH:
-            if (time.time() - last_press_time) > 0.5:  # debounce 500ms
+            if (time.time() - last_press_time) > 0.5:  # 500ms debounce
                 page_index = (page_index + 1) % len(pages)
                 last_press_time = time.time()
         last_button_state = button_state
@@ -153,7 +153,7 @@ try:
         draw_centered(draw, label, value)
         oled.image(image)
         oled.show()
-        time.sleep(0.05)  # slightly faster loop for more responsive button
+        time.sleep(0.02)  # fast loop for responsive button
 
 except KeyboardInterrupt:
     GPIO.cleanup()
