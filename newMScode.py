@@ -33,11 +33,11 @@ def button_pressed(channel):
     global page_index
     page_index = (page_index + 1) % len(pages)
 
-# --- Remove any previous events and add callback safely ---
+# --- Safely remove previous event and add callback ---
 try:
     GPIO.remove_event_detect(BUTTON_PIN)
-except RuntimeError:
-    pass  # no previous event
+except (RuntimeError, ValueError):
+    pass
 GPIO.add_event_detect(BUTTON_PIN, GPIO.FALLING, callback=button_pressed, bouncetime=500)
 
 # --- Setup Serial (MegaSquirt) ---
