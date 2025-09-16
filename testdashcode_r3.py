@@ -24,8 +24,8 @@ serial = i2c(port=1, address=i2c_addr)
 device = sh1106(serial)
 
 # Fonts (adjust sizes if too big/small for your OLED)
-font_small = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf", 10)
-font_large = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", 16)
+font_small = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf", 20)
+font_large = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", 48)
 
 # Example data (later replaced with MS + GPS)
 pages = [
@@ -50,7 +50,8 @@ while True:
         # Center value
         w_value, h_value = draw.textbbox((0, 0), value, font=font_large)[2:]
         x_value = (device.width - w_value) // 2
-        draw.text((x_value, 14), value, font=font_large, fill=255)
+        draw.text((x_value, 16), value, font=font_large, fill=255)
 
     page_index = (page_index + 1) % len(pages)
     time.sleep(2)
+
