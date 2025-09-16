@@ -28,18 +28,6 @@ BUTTON_PIN = 17  # BCM pin 17 (physical pin 11)
 GPIO.setmode(GPIO.BCM)
 GPIO.setup(BUTTON_PIN, GPIO.IN, pull_up_down=GPIO.PUD_UP)
 
-# --- Button callback ---
-def button_pressed(channel):
-    global page_index
-    page_index = (page_index + 1) % len(pages)
-
-# --- Safely remove previous event and add callback ---
-try:
-    GPIO.remove_event_detect(BUTTON_PIN)
-except (RuntimeError, ValueError):
-    pass
-GPIO.add_event_detect(BUTTON_PIN, GPIO.FALLING, callback=button_pressed, bouncetime=500)
-
 # --- Setup Serial (MegaSquirt) ---
 try:
     ser = serial.Serial('/dev/ttyUSB0', 115200, timeout=0.5)
@@ -60,6 +48,10 @@ else:
 # --- Pages ---
 pages = ['RPM', 'Coolant', 'MAT', 'AFR', 'TPS', 'GPS']
 page_index = 0
+
+# --- Button state tracking ---
+last_button_state = GPIO.input(BUTTON_PIN)
+last_press_time = 0
 
 # --- Functions ---
 def request_realtime():
@@ -117,6 +109,14 @@ def draw_centered(draw, label, value):
 # --- Main Loop ---
 try:
     while True:
+        # --- Button polling ---
+        button_state = GPIO.input(BUTTON_PIN)
+        if button_state == 0 and last_button_state == 1:
+            if (time.time() - last_press_time) > 0.5:  # 500ms debounce
+                page_index = (page_index + 1) % len(pages)
+                last_press_time = time.time()
+        last_button_state = button_state
+
         # Read ECU or dummy
         frame = request_realtime()
         data = parse_data(frame)
