@@ -13,7 +13,7 @@ oled.fill(0)
 oled.show()
 
 # --- Setup Button ---
-BUTTON_PIN = 17  # GPIO pin for momentary switch
+BUTTON_PIN = 17
 GPIO.setmode(GPIO.BCM)
 GPIO.setup(BUTTON_PIN, GPIO.IN, pull_up_down=GPIO.PUD_UP)
 
@@ -26,8 +26,9 @@ except serial.SerialException:
     print("MegaSquirt not detected. Running in dummy mode.")
     ms_connected = False
 
-# --- Font ---
-font = ImageFont.load_default()
+# --- Fonts ---
+font_label = ImageFont.load_default()  # small font for label
+font_value = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", 16)  # larger font for value
 
 # --- Pages ---
 pages = ['RPM', 'Coolant', 'MAT', 'AFR', 'TPS']
@@ -41,9 +42,8 @@ last_press_time = 0
 def request_realtime():
     if not ms_connected:
         return None
-    # MS2/Extra real-time request (adjust bytes for your firmware)
-    ser.write(b'\x01')
-    frame = ser.read(32)  # adjust frame length
+    ser.write(b'\x01')  # adjust for your firmware
+    frame = ser.read(32)
     return frame
 
 def parse_data(frame):
@@ -52,18 +52,34 @@ def parse_data(frame):
     rpm = frame[0] + (frame[1]<<8)
     coolant = frame[2]
     mat = frame[3]
-    afr = frame[4] / 10  # adjust scaling for your firmware
+    afr = frame[4] / 10
     tps = frame[5] if len(frame) > 5 else 0
     return {'RPM': rpm, 'Coolant': coolant, 'MAT': mat, 'AFR': afr, 'TPS': tps}
 
 def get_dummy_data():
-    # Dummy values for testing/display
     return {'RPM': 1500, 'Coolant': 75, 'MAT': 30, 'AFR': 14.7, 'TPS': 5}
+
+def draw_centered(draw, label, value):
+    # Measure label size
+    w_label, h_label = draw.textsize(label, font=font_label)
+    # Measure value size
+    w_value, h_value = draw.textsize(value, font=font_value)
+    
+    # X positions for centering
+    x_label = (128 - w_label) // 2
+    x_value = (128 - w_value) // 2
+    
+    # Y positions
+    y_label = 0
+    y_value = h_label  # start value below label
+    
+    draw.text((x_label, y_label), label, font=font_label, fill=255)
+    draw.text((x_value, y_value), value, font=font_value, fill=255)
 
 # --- Main Loop ---
 try:
     while True:
-        # --- Read button ---
+        # --- Button handling ---
         button_state = GPIO.input(BUTTON_PIN)
         if button_state == 0 and last_button_state == 1 and (time.time() - last_press_time) > 0.3:
             page_index = (page_index + 1) % len(pages)
@@ -76,22 +92,28 @@ try:
         if not data:
             data = get_dummy_data()
 
-        # --- Draw page ---
+        # --- Prepare page text ---
+        page = pages[page_index]
+        if page == 'RPM':
+            label = "RPM"
+            value = f"{data['RPM']}"
+        elif page == 'Coolant':
+            label = "Coolant"
+            value = f"{data['Coolant']}C"
+        elif page == 'MAT':
+            label = "MAT"
+            value = f"{data['MAT']}C"
+        elif page == 'AFR':
+            label = "AFR"
+            value = f"{data['AFR']:.1f}"
+        elif page == 'TPS':
+            label = "TPS"
+            value = f"{data['TPS']}%"
+
+        # --- Draw ---
         image = Image.new('1', (128, 32))
         draw = ImageDraw.Draw(image)
-        page = pages[page_index]
-
-        if page == 'RPM':
-            draw.text((0, 0), f"RPM: {data['RPM']}", font=font, fill=255)
-        elif page == 'Coolant':
-            draw.text((0, 0), f"Coolant: {data['Coolant']}C", font=font, fill=255)
-        elif page == 'MAT':
-            draw.text((0, 0), f"MAT: {data['MAT']}C", font=font, fill=255)
-        elif page == 'AFR':
-            draw.text((0, 0), f"AFR: {data['AFR']:.1f}", font=font, fill=255)
-        elif page == 'TPS':
-            draw.text((0, 0), f"TPS: {data['TPS']}%", font=font, fill=255)
-
+        draw_centered(draw, label, value)
         oled.image(image)
         oled.show()
         time.sleep(0.1)
