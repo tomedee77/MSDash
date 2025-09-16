@@ -49,7 +49,7 @@ else:
 pages = ['RPM', 'Coolant', 'MAT', 'AFR', 'TPS', 'GPS']
 page_index = 0
 
-# --- Button state tracking ---
+# --- Button tracking variables ---
 last_button_state = GPIO.input(BUTTON_PIN)
 last_press_time = 0
 
@@ -109,24 +109,24 @@ def draw_centered(draw, label, value):
 # --- Main Loop ---
 try:
     while True:
-        # --- Button polling ---
+        # --- Button polling with falling-edge detection ---
         button_state = GPIO.input(BUTTON_PIN)
-        if button_state == 0 and last_button_state == 1:
-            if (time.time() - last_press_time) > 0.5:  # 500ms debounce
+        if button_state == GPIO.LOW and last_button_state == GPIO.HIGH:
+            if (time.time() - last_press_time) > 0.5:  # debounce 500ms
                 page_index = (page_index + 1) % len(pages)
                 last_press_time = time.time()
         last_button_state = button_state
 
-        # Read ECU or dummy
+        # --- Read ECU or dummy data ---
         frame = request_realtime()
         data = parse_data(frame)
         if not data:
             data = get_dummy_data()
 
-        # Read GPS speed
+        # --- Read GPS speed ---
         gps_speed = get_gps_speed()
 
-        # Determine page content
+        # --- Determine page content ---
         page = pages[page_index]
         if page == 'RPM':
             label = "RPM"
@@ -147,13 +147,13 @@ try:
             label = "GPS Speed"
             value = f"{gps_speed:.1f} MPH"
 
-        # Draw to OLED
+        # --- Draw to OLED ---
         image = Image.new('1', (128, 32))
         draw = ImageDraw.Draw(image)
         draw_centered(draw, label, value)
         oled.image(image)
         oled.show()
-        time.sleep(0.1)
+        time.sleep(0.05)  # slightly faster loop for more responsive button
 
 except KeyboardInterrupt:
     GPIO.cleanup()
