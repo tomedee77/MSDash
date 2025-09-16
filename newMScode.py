@@ -24,7 +24,7 @@ oled.fill(0)
 oled.show()
 
 # --- Setup Button ---
-BUTTON_PIN = 17
+BUTTON_PIN = 17  # BCM pin 17 (physical pin 11)
 GPIO.setmode(GPIO.BCM)
 GPIO.setup(BUTTON_PIN, GPIO.IN, pull_up_down=GPIO.PUD_UP)
 
@@ -49,7 +49,7 @@ else:
 pages = ['RPM', 'Coolant', 'MAT', 'AFR', 'TPS', 'GPS']
 page_index = 0
 
-# --- Debounce ---
+# --- Button state tracking ---
 last_button_state = GPIO.input(BUTTON_PIN)
 last_press_time = 0
 
@@ -89,7 +89,6 @@ def get_gps_speed():
     return 0.0
 
 def draw_centered(draw, label, value):
-    # Get bounding boxes for label and value
     bbox_label = draw.textbbox((0, 0), label, font=font_label)
     w_label = bbox_label[2] - bbox_label[0]
     h_label = bbox_label[3] - bbox_label[1]
@@ -98,11 +97,9 @@ def draw_centered(draw, label, value):
     w_value = bbox_value[2] - bbox_value[0]
     h_value = bbox_value[3] - bbox_value[1]
 
-    # X positions for centering
     x_label = (128 - w_label) // 2
     x_value = (128 - w_value) // 2
 
-    # Y positions
     y_label = 0
     y_value = h_label
 
@@ -112,11 +109,12 @@ def draw_centered(draw, label, value):
 # --- Main Loop ---
 try:
     while True:
-        # --- Button handling ---
+        # --- Button handling (robust) ---
         button_state = GPIO.input(BUTTON_PIN)
-        if button_state == 0 and last_button_state == 1 and (time.time() - last_press_time) > 0.3:
-            page_index = (page_index + 1) % len(pages)
-            last_press_time = time.time()
+        if button_state == 0 and last_button_state == 1:
+            if (time.time() - last_press_time) > 0.5:  # 500ms debounce
+                page_index = (page_index + 1) % len(pages)
+                last_press_time = time.time()
         last_button_state = button_state
 
         # --- Read ECU or dummy ---
