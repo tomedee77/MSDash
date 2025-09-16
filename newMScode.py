@@ -5,6 +5,7 @@ from PIL import Image, ImageDraw, ImageFont
 import adafruit_ssd1306
 import board
 import busio
+import os
 
 # --- Setup OLED ---
 i2c = busio.I2C(board.SCL, board.SDA)
@@ -28,7 +29,14 @@ except serial.SerialException:
 
 # --- Fonts ---
 font_label = ImageFont.load_default()  # small font for label
-font_value = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", 16)  # larger font for value
+
+# Try to use a larger bold font for value
+font_path = "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf"
+if os.path.exists(font_path):
+    font_value = ImageFont.truetype(font_path, 16)
+else:
+    print("Custom font not found, using default for value")
+    font_value = ImageFont.load_default()
 
 # --- Pages ---
 pages = ['RPM', 'Coolant', 'MAT', 'AFR', 'TPS']
@@ -60,10 +68,9 @@ def get_dummy_data():
     return {'RPM': 1500, 'Coolant': 75, 'MAT': 30, 'AFR': 14.7, 'TPS': 5}
 
 def draw_centered(draw, label, value):
-    # Measure label size
-    w_label, h_label = draw.textsize(label, font=font_label)
-    # Measure value size
-    w_value, h_value = draw.textsize(value, font=font_value)
+    # Use font.getsize() for compatibility
+    w_label, h_label = font_label.getsize(label)
+    w_value, h_value = font_value.getsize(value)
     
     # X positions for centering
     x_label = (128 - w_label) // 2
@@ -71,7 +78,7 @@ def draw_centered(draw, label, value):
     
     # Y positions
     y_label = 0
-    y_value = h_label  # start value below label
+    y_value = h_label  # value below label
     
     draw.text((x_label, y_label), label, font=font_label, fill=255)
     draw.text((x_value, y_value), value, font=font_value, fill=255)
