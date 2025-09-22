@@ -5,7 +5,7 @@ import glob
 # ----------------------------
 # CONFIG
 # ----------------------------
-LOG_DIR = "/home/tomedee77/TunerStudioProjects/VWRX/DataLogs"  # adjust as needed
+LOG_DIR = "/home/tomedee77/TunerStudioProjects/VWRX/DataLogs"
 LOG_EXTENSIONS = ["*.mlg", "*.msl"]
 
 # ----------------------------
@@ -20,32 +20,41 @@ def find_latest_log(log_dir, extensions):
         return None
     return max(files, key=os.path.getmtime)
 
+def is_numeric(s):
+    """Check if string can be interpreted as a number"""
+    try:
+        float(s)
+        return True
+    except ValueError:
+        return False
+
 def read_last_data(file_path):
-    """Read headers and last data line, ignoring metadata/blank lines"""
+    """Read headers and last numeric data line"""
     try:
         with open(file_path, "r", encoding="utf-8", errors="replace") as f:
-            lines = [line.strip() for line in f if line.strip()]  # skip blank lines
+            lines = [line.strip() for line in f if line.strip()]
 
-        # Find the first line that looks like a header (non-numeric columns)
-        header_line = None
-        for i, line in enumerate(lines):
-            cols = line.split("\t")
-            if all(not col.replace(".", "", 1).isdigit() for col in cols):
-                header_line = i
+        # Skip metadata until we find a header line (non-numeric) followed by a numeric line
+        header = None
+        last_data = None
+        for i in range(len(lines) - 1):
+            cols = lines[i].split("\t")
+            next_cols = lines[i + 1].split("\t")
+            if any(not is_numeric(c) for c in cols) and all(is_numeric(c) for c in next_cols):
+                header = cols
+                # Now find the last numeric line in the remainder of the file
+                for line in lines[i + 1:]:
+                    data_cols = line.split("\t")
+                    if all(is_numeric(c) or c == '' for c in data_cols):
+                        last_data = data_cols
                 break
-        if header_line is None:
-            print("No header found in file.")
+
+        if not header or not last_data:
+            print("No valid data found in file.")
             return
 
-        header = lines[header_line].split("\t")
-        data_lines = lines[header_line + 1:]
-        if not data_lines:
-            print("No data lines found after header.")
-            return
-
-        last_line = data_lines[-1].split("\t")
         print(f"Latest data from file: {os.path.basename(file_path)}\n")
-        for label, value in zip(header, last_line):
+        for label, value in zip(header, last_data):
             print(f"{label}: {value}")
 
     except Exception as e:
