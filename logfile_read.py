@@ -9,12 +9,12 @@ import time
 LOG_DIR = "/home/tomedee77/TunerStudioProjects/VWRX/DataLogs"
 LOG_EXTENSIONS = ["*.mlg", "*.msl"]
 POLL_INTERVAL = 0.2  # seconds between checks
-COLUMN_WIDTH = 10    # width of each column for display
 
 # ----------------------------
 # HELPER FUNCTIONS
 # ----------------------------
 def find_latest_log(log_dir, extensions):
+    """Return the path of the most recent log file"""
     files = []
     for ext in extensions:
         files.extend(glob.glob(os.path.join(log_dir, ext)))
@@ -23,6 +23,7 @@ def find_latest_log(log_dir, extensions):
     return max(files, key=os.path.getmtime)
 
 def is_numeric(s):
+    """Check if string can be interpreted as a number"""
     try:
         float(s)
         return True
@@ -30,22 +31,19 @@ def is_numeric(s):
         return False
 
 def tail_log(file_path):
+    """Continuously read new lines from the log file"""
     try:
         with open(file_path, "r", encoding="utf-8", errors="replace") as f:
-            # Read all lines for headers
+            # Skip first 4 lines (metadata + labels)
+            for _ in range(4):
+                next(f, None)
+
+            # Capture headers from line 3
+            f.seek(0)
             lines = f.readlines()
-            if len(lines) < 3:
-                print("Not enough lines to parse headers")
-                return
+            header = lines[2].strip().split("\t")
 
-            header = lines[2].strip().split("\t")  # row 3 = labels
-
-            # Print header in columns
-            header_fmt = "".join(f"{h:<{COLUMN_WIDTH}}" for h in header)
-            print(header_fmt)
-            print("-" * len(header_fmt))
-
-            # Move to end for tailing
+            # Move to the end for tailing new lines
             f.seek(0, os.SEEK_END)
 
             while True:
@@ -61,8 +59,9 @@ def tail_log(file_path):
                 cols = line.split("\t")
                 # Only process numeric lines
                 if all(is_numeric(c) or c == '' for c in cols):
-                    row_fmt = "".join(f"{v:<{COLUMN_WIDTH}}" for v in cols)
-                    print(row_fmt)
+                    print("\nLatest data:")
+                    for h, v in zip(header, cols):
+                        print(f"{h}\n{v}")
     except Exception as e:
         print(f"Error reading file {file_path}: {e}")
 
