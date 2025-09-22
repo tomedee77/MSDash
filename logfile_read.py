@@ -29,33 +29,32 @@ def is_numeric(s):
         return False
 
 def read_last_data(file_path):
-    """Read headers and last numeric data line"""
+    """Read headers and last numeric data line starting from row 5"""
     try:
         with open(file_path, "r", encoding="utf-8", errors="replace") as f:
             lines = [line.strip() for line in f if line.strip()]
 
-        # Skip metadata until we find a header line (non-numeric) followed by a numeric line
-        header = None
-        last_data = None
-        for i in range(len(lines) - 1):
-            cols = lines[i].split("\t")
-            next_cols = lines[i + 1].split("\t")
-            if any(not is_numeric(c) for c in cols) and all(is_numeric(c) for c in next_cols):
-                header = cols
-                # Now find the last numeric line in the remainder of the file
-                for line in lines[i + 1:]:
-                    data_cols = line.split("\t")
-                    if all(is_numeric(c) or c == '' for c in data_cols):
-                        last_data = data_cols
-                break
+        if len(lines) < 5:
+            print("File too short to contain data.")
+            return
 
-        if not header or not last_data:
-            print("No valid data found in file.")
+        header = lines[2].split("\t")   # third row: labels
+        data_lines = lines[4:]          # start reading from row 5
+
+        # Find last numeric row
+        last_data = None
+        for line in data_lines:
+            cols = line.split("\t")
+            if all(is_numeric(c) or c == '' for c in cols):
+                last_data = cols
+
+        if not last_data:
+            print("No numeric data found in file.")
             return
 
         print(f"Latest data from file: {os.path.basename(file_path)}\n")
         for label, value in zip(header, last_data):
-            print(f"{label}: {value}")
+            print(f"{label}\n{value}\n")
 
     except Exception as e:
         print(f"Error reading file {file_path}: {e}")
